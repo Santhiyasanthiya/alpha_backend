@@ -10,12 +10,21 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const URL = process.env.DB;
 
-const client = new MongoClient(URL);
+// ✅ Reuse MongoDB connection (important for Vercel)
+let client;
+async function getDb() {
+  if (!client) {
+    client = new MongoClient(URL);
+    await client.connect();
+    console.log("✅ MongoDB connected");
+  }
+  return client.db("alphaingen");
+}
 
 app.use(express.json());
 app.use(cors({ origin: "*", credentials: true }));
 
-//------------------------ Nodemailer transporter --------------------
+// ------------------------ Nodemailer transporter --------------------
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -24,17 +33,16 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-//------------------------ Server test routes ------------------------
+// ------------------------ Server test route ------------------------
 app.get("/", (req, res) => {
   res.send("Alphaingen Server Running...");
 });
 
-//------------------------ Register / Signup ------------------------
+// ------------------------ Register / Signup ------------------------
 app.post("/signup", async (req, res) => {
   const { username, email, password } = req.body;
   try {
-    await client.connect();
-    const db = client.db("alphaingen");
+    const db = await getDb();
     const users = db.collection("signin");
 
     const finduser = await users.findOne({ email });
@@ -52,7 +60,6 @@ app.post("/signup", async (req, res) => {
     });
 
     if (postSignin.acknowledged) {
-    
       const details = {
         from: process.env.EMAIL,
         to: email,
@@ -66,7 +73,6 @@ app.post("/signup", async (req, res) => {
           </div>
         `,
       };
-
       await transporter.sendMail(details);
 
       return res.json({
@@ -77,19 +83,16 @@ app.post("/signup", async (req, res) => {
       return res.status(500).json({ message: "Error during registration" });
     }
   } catch (error) {
-    console.error(error);
+    console.error("Signup error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    await client.close();
   }
 });
 
-//------------------------ Login ------------------------
+// ------------------------ Login ------------------------
 app.post("/login", async (req, res) => {
   const { email, password } = req.body;
   try {
-    await client.connect();
-    const db = client.db("alphaingen");
+    const db = await getDb();
     const users = db.collection("signin");
 
     const userFind = await users.findOne({ email });
@@ -111,99 +114,55 @@ app.post("/login", async (req, res) => {
       username: userFind.username,
     });
   } catch (error) {
-    console.error(error);
+    console.error("Login error:", error);
     res.status(500).send({ message: "Internal Server Error" });
-  } finally {
-    await client.close();
   }
 });
 
-
-// ****************************************   Ask me question ***************************************************
-
-
-
-//------------------------ Questions Collection ------------------------
+// ------------------------ Ask Question ------------------------
 app.post("/questions", async (req, res) => {
-  const { title, content, tags, author, topic } = req.body;
   try {
-    await client.connect();
-    const db = client.db("alphaingen");
+    const { title, content, tags, author, topic } = req.body;
+    if (!title || !content) {
+      return res.status(400).json({ message: "Title and content are required" });
+    }
+
+    const db = await getDb();
     const questions = db.collection("questions");
 
-    const newQuestion = {
+    const result = await questions.insertOne({
       title,
       content,
-      tags: tags || [],
-      author: author || "Anonymous",
-      topic: topic || "General",
+      tags,
+      author,
+      topic,
       date: new Date(),
-      replies: [],
-    };
+    });
 
-    const result = await questions.insertOne(newQuestion);
-
-    if (result.acknowledged) {
-      res.status(201).json({ message: "Question added successfully", question: newQuestion });
-    } else {
-      res.status(500).json({ message: "Failed to add question" });
-    }
+    res.status(201).json({
+      message: "Question posted successfully",
+      question: { _id: result.insertedId, title, content, tags, author, topic },
+    });
   } catch (err) {
-    console.error(err);
+    console.error("Post Question error:", err);
     res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    await client.close();
   }
 });
 
-// Get all questions
+// ------------------------ Get All Questions ------------------------
 app.get("/questions", async (req, res) => {
   try {
-    await client.connect();
-    const db = client.db("alphaingen");
+    const db = await getDb();
     const questions = db.collection("questions");
-
     const data = await questions.find().sort({ date: -1 }).toArray();
     res.status(200).json(data);
   } catch (err) {
-    console.error(err);
+    console.error("Get Questions error:", err);
     res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    await client.close();
   }
 });
 
-// Add reply to a question
-app.post("/questions/:id/replies", async (req, res) => {
-  const { text, author } = req.body;
-  const { id } = req.params;
-
-  try {
-    await client.connect();
-    const db = client.db("alphaingen");
-    const questions = db.collection("questions");
-
-    const reply = { text, author: author || "Anonymous", date: new Date() };
-
-    const result = await questions.updateOne(
-      { _id: new ObjectId(id) },
-      { $push: { replies: reply } }
-    );
-
-    if (result.modifiedCount > 0) {
-      res.status(200).json({ message: "Reply added successfully" });
-    } else {
-      res.status(404).json({ message: "Question not found" });
-    }
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal Server Error" });
-  } finally {
-    await client.close();
-  }
-});
-
-//------------------------ Start server ------------------------
+// ------------------------ Start server ------------------------
 app.listen(PORT, () => {
   console.log("Listening successfully on port", PORT);
 });
