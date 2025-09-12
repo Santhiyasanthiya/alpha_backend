@@ -123,6 +123,7 @@ app.post("/login", async (req, res) => {
 app.post("/questions", async (req, res) => {
   try {
     const { title, content, tags, author, topic } = req.body;
+
     if (!title || !content) {
       return res.status(400).json({ message: "Title and content are required" });
     }
@@ -130,36 +131,29 @@ app.post("/questions", async (req, res) => {
     const db = await getDb();
     const questions = db.collection("questions");
 
-    const result = await questions.insertOne({
-      title,
-      content,
-      tags: tags || [],
+    const newQuestion = {
+      title: title || "Untitled",
+      content: content || "",
+      tags: Array.isArray(tags) ? tags : [], // ✅ always array
       author: author || "Anonymous",
       topic: topic || "General",
-      replies: [],            // ✅ prevent crash
+      replies: [],
       date: new Date(),
-    });
+    };
+
+    const result = await questions.insertOne(newQuestion);
+
+    console.log("✅ Question inserted:", result.insertedId);
 
     res.status(201).json({
       message: "Question posted successfully",
-      question: {
-        _id: result.insertedId,
-        title,
-        content,
-        tags: tags || [],
-        author: author || "Anonymous",
-        topic: topic || "General",
-        replies: [],
-        date: new Date(),
-      },
+      question: { ...newQuestion, _id: result.insertedId },
     });
   } catch (err) {
-    console.error("Post Question error:", err);
+    console.error("❌ Post Question error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
-
-
 
 // ------------------------ Get All Questions ------------------------
 app.get("/questions", async (req, res) => {
