@@ -133,21 +133,33 @@ app.post("/questions", async (req, res) => {
     const result = await questions.insertOne({
       title,
       content,
-      tags,
-      author,
-      topic,
+      tags: tags || [],
+      author: author || "Anonymous",
+      topic: topic || "General",
+      replies: [],            // ✅ prevent crash
       date: new Date(),
     });
 
     res.status(201).json({
       message: "Question posted successfully",
-      question: { _id: result.insertedId, title, content, tags, author, topic },
+      question: {
+        _id: result.insertedId,
+        title,
+        content,
+        tags: tags || [],
+        author: author || "Anonymous",
+        topic: topic || "General",
+        replies: [],
+        date: new Date(),
+      },
     });
   } catch (err) {
     console.error("Post Question error:", err);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+
 
 // ------------------------ Get All Questions ------------------------
 app.get("/questions", async (req, res) => {
