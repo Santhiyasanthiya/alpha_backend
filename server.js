@@ -122,7 +122,7 @@ app.post("/login", async (req, res) => {
 // ------------------------ Ask Question ------------------------
 app.post("/questions", async (req, res) => {
   try {
-    const { title, content, tags, author, topic } = req.body;
+    const { title, content,   topic } = req.body;
 
     if (!title || !content) {
       return res.status(400).json({ message: "Title and content are required" });
@@ -134,8 +134,7 @@ app.post("/questions", async (req, res) => {
     const newQuestion = {
       title: title || "Untitled",
       content: content || "",
-      tags: Array.isArray(tags) ? tags : [], // ✅ always array
-      author: author || "Anonymous",
+   
       topic: topic || "General",
       replies: [],
       date: new Date(),
@@ -167,6 +166,48 @@ app.get("/questions", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+
+
+// ------------------------ Post Reply ------------------------
+app.put("/questions/:id/reply", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, author } = req.body;
+
+    const db = await getDb();
+    const questions = db.collection("questions");
+
+    const reply = {
+      text,
+      author: author || "Anonymous",
+      date: new Date(),
+    };
+
+    const result = await questions.updateOne(
+      { _id: new ObjectId(id) },
+      { $push: { replies: reply } }
+    );
+
+    if (result.modifiedCount === 1) {
+      res.status(200).json({ message: "Reply added successfully", reply });
+    } else {
+      res.status(404).json({ message: "Question not found" });
+    }
+  } catch (err) {
+    console.error("Reply error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+
+
+
+
+
+
+
 
 // ------------------------ Start server ------------------------
 app.listen(PORT, () => {
