@@ -34,6 +34,12 @@ const transporter = nodemailer.createTransport({
 });
 
 // ------------------------ Server test route ------------------------
+app.post("/", (req, res) => {
+  res.send("Server Running...");
+});
+  
+
+
 app.get("/", (req, res) => {
   res.send("Alphaingen Server Running...");
 });
