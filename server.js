@@ -281,6 +281,38 @@ app.put("/guidelines/:id/like", async (req, res) => {
   }
 });
 
+// Add comment
+app.put("/guidelines/:id/comment", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, author } = req.body;
+
+    if (!text) return res.status(400).json({ message: "Comment text required" });
+
+    const db = await getDb();
+    const guidelines = db.collection("guidelines");
+
+    const comment = {
+      text,
+      author: author || "Anonymous",
+      date: new Date(),
+    };
+
+    const result = await guidelines.updateOne(
+      { _id: new ObjectId(id) },
+      { $push: { comments: comment } }
+    );
+
+    if (result.modifiedCount === 1) {
+      res.json({ message: "Comment added", comment });
+    } else {
+      res.status(404).json({ message: "Not found" });
+    }
+  } catch (err) {
+    console.error("Comment error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 
 
