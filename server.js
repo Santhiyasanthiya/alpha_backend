@@ -209,36 +209,36 @@ app.put("/questions/:id/reply", async (req, res) => {
 
 
 // ------------------------ Guidelines ------------------------
+// POST: Create new guideline (Admin only)
 app.post("/guidelines", async (req, res) => {
   try {
-    const { email, title, content, image } = req.body;
+    const { title, content, image } = req.body;
 
-    if (email !== "chandru@gmail.com") {
-      return res.status(403).json({ message: "Not Authorized" });
+    // simple admin check
+    if (!req.headers.authorization || req.headers.authorization !== "chandru_secret") {
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
-    const db = await getDb();
-    const guidelines = db.collection("guidelines");
+    if (!title || !content || !image) {
+      return res.status(400).json({ message: "All fields required" });
+    }
 
-    const newGuide = {
+    const newGuide = new Guideline({
       title,
       content,
-      image: image || "https://via.placeholder.com/300x200", // base64 string or fallback
+      image,
       likes: 0,
-      likedUsers: [],
-      date: new Date(),
-    };
-
-    const result = await guidelines.insertOne(newGuide);
-    res.status(201).json({
-      message: "Guideline created",
-      guideline: { ...newGuide, _id: result.insertedId },
+      comments: [],
     });
+
+    await newGuide.save();
+    res.status(201).json(newGuide);
   } catch (err) {
-    console.error("Guideline post error:", err);
-    res.status(500).json({ message: "Internal Server Error" });
+    console.error("Upload error:", err);
+    res.status(500).json({ message: "Error uploading post" });
   }
 });
+
 
 // Get all guidelines
 app.get("/guidelines", async (req, res) => {
