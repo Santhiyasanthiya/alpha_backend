@@ -210,6 +210,7 @@ app.put("/questions/:id/reply", async (req, res) => {
 
 // ------------------------ Guidelines ------------------------
 // POST: Create new guideline (Admin only)
+// POST: Create new guideline (Admin only)
 app.post("/guidelines", async (req, res) => {
   try {
     const { title, content, image } = req.body;
@@ -223,21 +224,27 @@ app.post("/guidelines", async (req, res) => {
       return res.status(400).json({ message: "All fields required" });
     }
 
-    const newGuide = new Guideline({
+    const db = await getDb();
+    const guidelines = db.collection("guidelines");
+
+    const newGuide = {
       title,
       content,
       image,
       likes: 0,
+      likedUsers: [],
       comments: [],
-    });
+      date: new Date(),
+    };
 
-    await newGuide.save();
-    res.status(201).json(newGuide);
+    const result = await guidelines.insertOne(newGuide);
+    res.status(201).json({ ...newGuide, _id: result.insertedId });
   } catch (err) {
     console.error("Upload error:", err);
     res.status(500).json({ message: "Error uploading post" });
   }
 });
+
 
 
 // Get all guidelines
