@@ -208,6 +208,78 @@ app.put("/questions/:id/reply", async (req, res) => {
 
 
 
+// ------------------------ Guidelines ------------------------
+app.post("/guidelines", async (req, res) => {
+  try {
+    const { email, title, content, image } = req.body;
+
+    if (email !== "chandru@gmail.com") {
+      return res.status(403).json({ message: "Not Authorized" });
+    }
+
+    const db = await getDb();
+    const guidelines = db.collection("guidelines");
+
+    const newGuide = {
+      title,
+      content,
+      image: image || "https://via.placeholder.com/300x200", // base64 string or fallback
+      likes: 0,
+      likedUsers: [],
+      date: new Date(),
+    };
+
+    const result = await guidelines.insertOne(newGuide);
+    res.status(201).json({
+      message: "Guideline created",
+      guideline: { ...newGuide, _id: result.insertedId },
+    });
+  } catch (err) {
+    console.error("Guideline post error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Get all guidelines
+app.get("/guidelines", async (req, res) => {
+  try {
+    const db = await getDb();
+    const guidelines = db.collection("guidelines");
+    const data = await guidelines.find().sort({ date: -1 }).toArray();
+    res.status(200).json(data);
+  } catch (err) {
+    console.error("Get Guidelines error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// Like a guideline
+app.put("/guidelines/:id/like", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    const db = await getDb();
+    const guidelines = db.collection("guidelines");
+
+    const guide = await guidelines.findOne({ _id: new ObjectId(id) });
+    if (!guide) return res.status(404).json({ message: "Not Found" });
+
+    if (guide.likedUsers.includes(email)) {
+      return res.status(400).json({ message: "Already liked" });
+    }
+
+    await guidelines.updateOne(
+      { _id: new ObjectId(id) },
+      { $inc: { likes: 1 }, $push: { likedUsers: email } }
+    );
+
+    res.json({ message: "Liked successfully" });
+  } catch (err) {
+    console.error("Like error:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 
 
