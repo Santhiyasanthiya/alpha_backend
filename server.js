@@ -124,6 +124,81 @@ app.post("/login", async (req, res) => {
     res.status(500).send({ message: "Internal Server Error" });
   }
 });
+// *************************Contact details********************************
+
+// ------------------------ Enquiry Route ------------------------
+app.post("/enquiry", async (req, res) => {
+  const { username, email, phone, subject } = req.body;
+
+  if (!username || !email || !phone || !subject) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  try {
+    const db = await getDb();
+    const enquiries = db.collection("enquiries");
+
+    // save enquiry in DB
+    const newEnquiry = {
+      username,
+      email,
+      phone,
+      subject,
+      date: new Date(),
+    };
+    await enquiries.insertOne(newEnquiry);
+
+    // send "thank you" mail to user
+    const userMail = {
+      from: process.env.EMAIL,
+      to: email,
+      subject: "Thank You for Submitting Your Enquiry",
+      html: `
+        <div style="font-family: Arial; padding:20px; background:#fef8f5; border-radius:10px;">
+          <h2 style="color:#ff6600;">Thank You, ${username}!</h2>
+          <p>We have received your enquiry. Our team will get back to you soon.</p>
+          <p><b>Your Message:</b> ${subject}</p>
+          <p style="margin-top:20px;">Best Regards,<br/>Alphaingen Medical Coding Center</p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(userMail);
+
+    // send notification mail to admin
+    const adminMail = {
+      from: process.env.EMAIL,
+      to: "santhiya30032@gmail.com",
+      subject: "New Enquiry Received",
+      html: `
+        <div style="font-family: Arial; padding:20px; background:#e8f7ff; border-radius:10px;">
+          <h3>New Enquiry Received</h3>
+          <p><b>Name:</b> ${username}</p>
+          <p><b>Email:</b> ${email}</p>
+          <p><b>Phone:</b> ${phone}</p>
+          <p><b>Message:</b> ${subject}</p>
+          <p style="margin-top:20px;">Please respond soon.</p>
+        </div>
+      `,
+    };
+    await transporter.sendMail(adminMail);
+
+    return res.json({ message: "Thank you for submitting" });
+  } catch (error) {
+    console.error("Enquiry error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
 
 // ------------------------ Ask Question ------------------------
 app.post("/questions", async (req, res) => {
@@ -210,7 +285,7 @@ app.put("/questions/:id/reply", async (req, res) => {
 
 // ------------------------ Guidelines ------------------------
 // POST: Create new guideline (Admin only)
-// POST: Create new guideline (Admin only)
+
 app.post("/guidelines", async (req, res) => {
   try {
     const { title, content, image } = req.body;
