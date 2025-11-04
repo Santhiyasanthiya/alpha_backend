@@ -285,7 +285,6 @@ app.put("/questions/:id/reply", async (req, res) => {
 
 // ------------------------ Guidelines ------------------------
 // POST: Create new guideline (Admin only)
-
 app.post("/guidelines", async (req, res) => {
   try {
     const { title, content, image } = req.body;
@@ -295,9 +294,11 @@ app.post("/guidelines", async (req, res) => {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    if (!title || !content || !image) {
-      return res.status(400).json({ message: "All fields required" });
+    if (!title || !content) {
+      return res.status(400).json({ message: "Title and content required" });
     }
+
+    const imageUrl = image || "https://via.placeholder.com/600x400?text=No+Image";
 
     const db = await getDb();
     const guidelines = db.collection("guidelines");
@@ -305,7 +306,7 @@ app.post("/guidelines", async (req, res) => {
     const newGuide = {
       title,
       content,
-      image,
+      image: imageUrl,
       likes: 0,
       likedUsers: [],
       comments: [],
@@ -319,6 +320,7 @@ app.post("/guidelines", async (req, res) => {
     res.status(500).json({ message: "Error uploading post" });
   }
 });
+
 
 
 
